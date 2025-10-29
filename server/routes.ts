@@ -106,14 +106,35 @@ class Routes {
   @Router.post("/listings")
   async addListing(session: SessionDoc, name: string, meetup_location: string, image: string, quantity: number, expireDate: string, description: string, tags: string[]) {
     const user = Sessioning.getUser(session);
-    const created = await Listing.addListing(user, name, meetup_location, image, quantity, description, tags);
+    let createdListing = null;
+    
+    try {
+      // Create the listing first
+      const created = await Listing.addListing(user, name, meetup_location, image, quantity, description, tags);
+      createdListing = created.listing;
 
-    if (created.listing) {
-      const create_expireObj = await Listing_Expiring.allocate(created.listing._id, expireDate, "00:00");
-      for (const tag of tags) {
-        await Tagging.tagItem(created.listing._id, tag);
+      if (createdListing) {
+        // Create expiration record
+        const create_expireObj = await Listing_Expiring.allocate(createdListing._id, expireDate, "00:00");
+        
+        // Add tags
+        for (const tag of tags) {
+          await Tagging.tagItem(createdListing._id, tag);
+        }
+        
+        return { msg: created.msg, listing: await Responses.listing(createdListing) };
       }
-      return { msg: created.msg, listing: await Responses.listing(created.listing) };
+    } catch (error) {
+      // Rollback: if expiration record creation fails, delete the listing
+      if (createdListing) {
+        try {
+          await Listing.delete(createdListing._id);
+          console.log(`Rolled back listing creation due to expiration record failure: ${createdListing._id}`);
+        } catch (rollbackError) {
+          console.error(`Failed to rollback listing: ${createdListing._id}`, rollbackError);
+        }
+      }
+      throw error; // Re-throw the original error
     }
   }
 
@@ -123,7 +144,25 @@ class Routes {
     const oid = new ObjectId(id);
     await Listing.assertAuthorIsUser(oid, user);
     const updatedListing = await Listing.editlisting(oid, name, meetup_location, image, quantity, description, tags);
-    //update Expiring date for oid
+    
+    // Update expiration date if provided
+    if (expireDate) {
+      try {
+        const listingExp = await Listing_Expiring.getExpireByItem(oid);
+        if (listingExp) {
+          await Listing_Expiring.editExpiration(listingExp._id, expireDate, "00:00");
+          console.log(`Updated expiration date for listing: ${id}`);
+        } else {
+          // If no expiration record exists, create one
+          await Listing_Expiring.allocate(oid, expireDate, "00:00");
+          console.log(`Created new expiration record for listing: ${id}`);
+        }
+      } catch (error) {
+        console.error(`Failed to update expiration date for listing ${id}:`, error);
+        // Don't throw error - listing update should still succeed
+      }
+    }
+    
     return updatedListing;
   }
 
@@ -132,6 +171,19 @@ class Routes {
     const user = Sessioning.getUser(session);
     const oid = new ObjectId(id);
     await Listing.assertAuthorIsUser(oid, user);
+    
+    // Clean up expiration record if it exists
+    try {
+      const listingExp = await Listing_Expiring.getExpireByItem(oid);
+      if (listingExp) {
+        await Listing_Expiring.delete(listingExp._id);
+        console.log(`Cleaned up expiration record for deleted listing: ${id}`);
+      }
+    } catch (error) {
+      // If no expiration record exists, that's fine - continue with deletion
+      console.log(`No expiration record found for listing: ${id}`);
+    }
+    
     return Listing.delete(oid);
   }
 
@@ -163,11 +215,29 @@ class Routes {
   @Router.post("/requests")
   async addRequest(session: SessionDoc, name: string, quantity: number, needBy: string, image?: string, description?: string) {
     const user = Sessioning.getUser(session);
-    const created = await Requesting.add(user, name, quantity, image, description);
-    //expiration date of the resource
-    if (created.request) {
-      const create_needBy = await Request_Expiring.allocate(created.request._id, needBy, "00:00");
-      return { msg: created.msg, request: await Responses.request(created.request) };
+    let createdRequest = null;
+    
+    try {
+      // Create the request first
+      const created = await Requesting.add(user, name, quantity, image, description);
+      createdRequest = created.request;
+      
+      //expiration date of the resource
+      if (createdRequest) {
+        const create_needBy = await Request_Expiring.allocate(createdRequest._id, needBy, "00:00");
+        return { msg: created.msg, request: await Responses.request(createdRequest) };
+      }
+    } catch (error) {
+      // Rollback: if expiration record creation fails, delete the request
+      if (createdRequest) {
+        try {
+          await Requesting.delete(createdRequest._id);
+          console.log(`Rolled back request creation due to expiration record failure: ${createdRequest._id}`);
+        } catch (rollbackError) {
+          console.error(`Failed to rollback request: ${createdRequest._id}`, rollbackError);
+        }
+      }
+      throw error; // Re-throw the original error
     }
   }
 
@@ -192,8 +262,17 @@ class Routes {
     const oid = new ObjectId(id);
     await Requesting.assertAuthor(oid, user);
 
-    const RequestExp = await Request_Expiring.getExpireByItem(oid);
-    await Request_Expiring.delete(RequestExp._id);
+    // Clean up expiration record if it exists
+    try {
+      const RequestExp = await Request_Expiring.getExpireByItem(oid);
+      if (RequestExp) {
+        await Request_Expiring.delete(RequestExp._id);
+        console.log(`Cleaned up expiration record for deleted request: ${id}`);
+      }
+    } catch (error) {
+      // If no expiration record exists, that's fine - continue with deletion
+      console.log(`No expiration record found for request: ${id}`);
+    }
 
     await Offering.removeAllItemOffers(oid);
 
@@ -427,15 +506,10 @@ class Routes {
     const oid = new ObjectId(id);
     const user = Sessioning.getUser(session);
 
-    //await Listing.assertAuthorIsUser(expire.item, user);
-    await Listing_Expiring.editExpiration(oid, expireDate, "00:00");
+    //await Listing.assertAuthorIsUser(expire.item, user); ignore this commented out portion 
+    await Listing_Expiring.editExpiration(oid, expireDate, "00:00"); 
   }
 
-  // @Router.get("expirations/item")
-  // async getExpireOfItem(itemId: string) {
-  //   const oid = new ObjectId(itemId);
-  //   return await Listing_Expiring.getExpireByItem(oid);
-  // }
 
   //routes for displaying the count in profile
   @Router.get("/userCounts/:userId")

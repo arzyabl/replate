@@ -24,20 +24,30 @@ export default class ExpiringConcept {
    * Allocate a new expiring item with a date and 24-hour time.
    */
   async allocate(itemId: ObjectId, expirationString: string, expirationTime24hrs: string) {
-    const [month, day, year] = expirationString.split("/").map(Number);
-    const [hours, minutes] = expirationTime24hrs.split(":").map(Number);
-
-    // Combine date and time into a single Date object
-    const expirationDate = new Date(year, month - 1, day, hours, minutes);
-
-    if (expirationDate <= new Date()) {
-      throw new Error("Expiration date and time must be in the future.");
+    // Basic validation
+    if (!expirationString || !expirationTime24hrs) {
+      throw new Error("Expiration date and time are required.");
     }
 
-    const _id = await this.expirings.createOne({ item: itemId, expireAt: expirationDate });
-    const expiringObject = await this.expirings.readOne({ _id });
+    try {
+      const [month, day, year] = expirationString.split("/").map(Number);
+      const [hours, minutes] = expirationTime24hrs.split(":").map(Number);
 
-    return { msg: expiringObject };
+      // Combine date and time into a single Date object
+      const expirationDate = new Date(year, month - 1, day, hours, minutes);
+
+      if (expirationDate <= new Date()) {
+        throw new Error("Expiration date and time must be in the future.");
+      }
+
+      const _id = await this.expirings.createOne({ item: itemId, expireAt: expirationDate });
+      const expiringObject = await this.expirings.readOne({ _id });
+
+      return { msg: expiringObject };
+    } catch (error) {
+      console.error("Error in allocate:", error);
+      throw new Error(`Invalid date format: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**
@@ -48,24 +58,29 @@ export default class ExpiringConcept {
       return { msg: "No expiration date or time provided. No updates made." };
     }
 
-    const expire = this.expirings.readOne({ _id });
+    const expire = await this.expirings.readOne({ _id });
     if (!expire) {
       throw new NotFoundError(`Expiring ${_id} does not exist.`);
     }
 
-    const [month, day, year] = expirationString.split("/").map(Number);
-    const [hours, minutes] = expirationTime24hrs.split(":").map(Number);
+    try {
+      const [month, day, year] = expirationString.split("/").map(Number);
+      const [hours, minutes] = expirationTime24hrs.split(":").map(Number);
 
-    const expireAt = new Date(year, month - 1, day, hours, minutes);
+      const expireAt = new Date(year, month - 1, day, hours, minutes);
 
-    if (expireAt <= new Date()) {
-      throw new Error("Expiration date and time must be in the future.");
+      if (expireAt <= new Date()) {
+        throw new Error("Expiration date and time must be in the future.");
+      }
+
+      const updateDoc = { expireAt };
+      await this.expirings.partialUpdateOne({ _id }, updateDoc);
+
+      return { msg: "Expiration date and time successfully updated!" };
+    } catch (error) {
+      console.error("Error in editExpiration:", error);
+      throw new Error(`Invalid date format: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    const updateDoc = { expireAt };
-    await this.expirings.partialUpdateOne({ _id }, updateDoc);
-
-    return { msg: "Expiration date and time successfully updated!" };
   }
 
   async getAll() {

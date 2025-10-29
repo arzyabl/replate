@@ -2,10 +2,10 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import session from "express-session";
-import logger from "morgan";
-import * as path from "path";
-// import cron from "node-cron";
 import { ObjectId } from "mongodb";
+import logger from "morgan";
+import cron from "node-cron";
+import * as path from "path";
 
 
 
@@ -14,9 +14,9 @@ import { ObjectId } from "mongodb";
 dotenv.config();
 
 import MongoStore from "connect-mongo";
+import { Listing, Listing_Expiring, Request_Expiring, Requesting } from "../server/app";
 import { connectDb } from "../server/db";
 import { appRouter } from "../server/routes";
-import { Authing, Listing, Requesting, Sessioning, Request_Expiring, Listing_Expiring } from "../server/app";  
 
 
 export const app = express();
@@ -58,58 +58,116 @@ void connectDb().then(() => {
 });
 
 
-// Expiring schedule
+// Expiring schedule - runs every 5 minutes
+cron.schedule("*/5 * * * *", async () => {
+  console.log("=== CRON JOB STARTED ===");
+  console.log(`Current time: ${new Date().toISOString()}`);
+  
+  try {
+    await handleListingsExpired();
+    await handleRequestsExpired();
+    console.log("=== CRON JOB COMPLETED SUCCESSFULLY ===");
+  } catch (error) {
+    console.error("=== CRON JOB FAILED ===", error);
+  }
+});
 
-// cron.schedule("* * * * *", async () => {
-//   console.log("Running scheduled tasks...");
-//   await handleListingsExpired();
-//   await handleRequestsExpired();
-// });
 
+// Function to handle expired listings
+async function handleListingsExpired() {
+  try {
+    console.log("Starting expired listings processing...");
+    const expiredDocs = await Listing_Expiring.getAllExpired();
+    
+    if (!expiredDocs || expiredDocs.length === 0) {
+      console.log("No expired listings to process.");
+      return;
+    }
 
-// // Function to handle expired listings
-// async function handleListingsExpired() {
-//   const expiredDocs = await Listing_Expiring.getAllExpired();
-//   if (!expiredDocs || expiredDocs.length === 0) {
-//     console.log("No expired listings to process.");
-//     return;
-//   }
+    console.log(`Found ${expiredDocs.length} expired listings to process.`);
 
-//   for (const doc of expiredDocs) {
-//     const itemOid = new ObjectId(doc.item);
-//     const listingExp = await Listing_Expiring.getExpireByItem(itemOid);
+    for (const doc of expiredDocs) {
+      try {
+        const itemOid = new ObjectId(doc.item);
+        
+        // Get the listing to check if it's still visible
+        const listing = await Listing.getListingById(itemOid);
+        
+        // Only process if listing exists and is not already hidden
+        if (listing && !listing.hidden) {
+          console.log(`Hiding expired listing: ${listing.name} (ID: ${itemOid})`);
+          
+          // Hide the listing instead of deleting it
+          await Listing.hideSwitch(itemOid);
+          
+          // Delete the expiration record to clean up
+          await Listing_Expiring.delete(doc._id);
+          
+          console.log(`Successfully processed expired listing: ${listing.name}`);
+        } else if (listing && listing.hidden) {
+          // If listing is already hidden, just clean up the expiration record
+          console.log(`Cleaning up expiration record for already hidden listing: ${listing.name}`);
+          await Listing_Expiring.delete(doc._id);
+        }
+      } catch (error) {
+        console.error(`Error processing expired listing ${doc.item}:`, error);
+        // Continue processing other listings even if one fails
+      }
+    }
+    
+    console.log("Completed expired listings processing.");
+  } catch (error) {
+    console.error("Error in handleListingsExpired:", error);
+  }
+}
 
-//     // if listing is expired and still avalable(not hidden) then delete 
-//     //when item are created hidden is set to false 
-//     const listing = await Listing.getListingById(itemOid);
-//     if (listingExp && listing && !listing.hidden) {
-//       await Listing_Expiring.delete(listingExp._id);
-//       await Listing.delete(itemOid);
-//     }
-//   }
-//   console.log("Processed expired listings.");
-// }
+// Function to handle expired requests
+async function handleRequestsExpired() {
+  try {
+    console.log("Starting expired requests processing...");
+    const expiredDocs = await Request_Expiring.getAllExpired();
+    
+    if (!expiredDocs || expiredDocs.length === 0) {
+      console.log("No expired requests to process.");
+      return;
+    }
 
-// // Function to handle expired requests
-// async function handleRequestsExpired() {
-//   const expiredDocs = await Request_Expiring.getAllExpired();
-//   if (!expiredDocs || expiredDocs.length === 0) {
-//     console.log("No expired requests to process.");
-//     return;
-//   }
+    console.log(`Found ${expiredDocs.length} expired requests to process.`);
 
-//   for (const doc of expiredDocs) {
-//     const itemOid = new ObjectId(doc.item);
-//     const requestExp = await Request_Expiring.getExpireByItem(itemOid);
-//     // if listing is expired and still avalable(not hidden) then delete 
-//     //when item are created hidden is set to false 
-//     if (requestExp && !(await Requesting.getRequestById(itemOid)).hidden ) {
-//       await Request_Expiring.delete(requestExp._id);
-//       await Requesting.delete(itemOid);
-//     }
-//   }
-//   console.log("Processed expired requests.");
-// }
+    for (const doc of expiredDocs) {
+      try {
+        const itemOid = new ObjectId(doc.item);
+        
+        // Get the request to check if it's still visible
+        const request = await Requesting.getRequestById(itemOid);
+        
+        // Only process if request exists and is not already hidden
+        if (request && !request.hidden) {
+          console.log(`Hiding expired request: ${request.name} (ID: ${itemOid})`);
+          
+          // Hide the request instead of deleting it
+          await Requesting.hideSwitch(itemOid);
+          
+          // Delete the expiration record to clean up
+          await Request_Expiring.delete(doc._id);
+          
+          console.log(`Successfully processed expired request: ${request.name}`);
+        } else if (request && request.hidden) {
+          // If request is already hidden, just clean up the expiration record
+          console.log(`Cleaning up expiration record for already hidden request: ${request.name}`);
+          await Request_Expiring.delete(doc._id);
+        }
+      } catch (error) {
+        console.error(`Error processing expired request ${doc.item}:`, error);
+        // Continue processing other requests even if one fails
+      }
+    }
+    
+    console.log("Completed expired requests processing.");
+  } catch (error) {
+    console.error("Error in handleRequestsExpired:", error);
+  }
+}
 
 
 export default app;
