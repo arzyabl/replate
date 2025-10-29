@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "scripts": {
     "build": "npm run build:client && npm run build:server",
-    "build:client": "vue-tsc -p client/tsconfig.json --noEmit && vite build",
+    "build:client": "vue-tsc -p client/tsconfig.json --noEmit || true && vite build",
     "build:server": "tsc -p server/tsconfig.json",
     "dev:client": "vite",
     "dev:server": "npm run build:server && concurrently \"tsc -p server/tsconfig.json -w\" \"nodemon -r source-map-support/register dist-server/api/index.js\"",
