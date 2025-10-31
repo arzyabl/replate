@@ -84,4 +84,4 @@ const faqs = ref<FAQ[]>([
   color: #555;
 }
 </style>
- 
+Footer © 2024 GitHub, Inc. Footer navigation Terms Privacy Security
