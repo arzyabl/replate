@@ -28,7 +28,7 @@ export async function fetchy(
 
   // Build query string
   const queryString = new URLSearchParams(options.query).toString();
-  const fullUrl = queryString ? `${url}?${queryString}` : url;
+  const fullUrl = `${url}?${queryString}`;
 
   if ((method === "GET" || method === "DELETE") && options.body) {
     throw new Error(`Cannot have a body with a ${method} request`);
@@ -37,8 +37,10 @@ export async function fetchy(
   // Set up fetch options
   const fetchOptions: RequestInit = {
     method,
-    credentials: "include",
-    headers: {},
+    headers: {
+      "Content-Type": "application/json",
+      credentials: "same-origin",
+    },
   };
 
   // // Handle the body
@@ -52,7 +54,6 @@ export async function fetchy(
 
   if (options.body) {
     fetchOptions.body = JSON.stringify(options.body);
-    (fetchOptions.headers as Record<string, string>)["Content-Type"] = "application/json";
   }
 
   // Perform fetch request
