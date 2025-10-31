@@ -20,10 +20,18 @@ import { appRouter } from "../server/routes";
 
 
 export const app = express();
+// Trust proxy so secure cookies work behind Vercel/Proxies
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 app.use(logger("dev"));
 
-app.use(cors()); // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+// Enable CORS with credentials so cookies can be sent from the frontend
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+); // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
 
 app.use(express.json()); // Enable parsing JSON in requests and responses.
 app.use(express.urlencoded({ extended: false })); // Also enable URL encoded request and responses.
@@ -32,8 +40,13 @@ app.use(express.urlencoded({ extended: false })); // Also enable URL encoded req
 app.use(
   session({
     secret: process.env.SECRET || "Hello 6.1040",
-    resave: true,
+    resave: false,
     saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    },
     store: MongoStore.create({
       mongoUrl: process.env.MONGO_SRV,
       dbName: "mongo-sessions",
