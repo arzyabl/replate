@@ -1,5 +1,5 @@
 import { storeToRefs } from "pinia";
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHashHistory } from "vue-router";
 
 import UserClaimListComponent from "@/components/Claiming/UserClaimListComponent.vue";
 import { useUserStore } from "@/stores/user";
@@ -22,7 +22,7 @@ import SettingView from "../views/SettingView.vue";
 import ViewOffersView from "../views/ViewOffersView.vue";
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes: [
     {
       path: "/",
