@@ -98,79 +98,82 @@ const createListing = async () => {
 </script>
 
 <template>
-  <form @submit.prevent="createListing" class="pure-form pure-form-stacked">
-    <label for="name">Item Name</label>
-    <input id="name" type="text" v-model="name" placeholder="Name" required />
+  <div class="form-container">
+    <form @submit.prevent="createListing" class="pure-form pure-form-stacked create-listing-form">
+      <label for="name">Item Name</label>
+      <input id="name" type="text" v-model="name" placeholder="Name" required />
 
-    <label for="meetupLocation"> <span style="font-size: 25px">&#128205;</span>Meet Up Location</label>
-    <input id="meetupLocation" type="text" v-model="meetupLocation" placeholder="Meetup Location" required />
+      <label for="meetupLocation"> <span style="font-size: 25px">&#128205;</span>Meet Up Location </label>
+      <input id="meetupLocation" type="text" v-model="meetupLocation" placeholder="Meetup Location" required />
 
-    <label for="imageUrl">Image URL</label>
-    <input id="imageUrl" type="url" v-model="imageUrl" placeholder="https://example.com/image.jpg" required />
-    <small v-if="imageError" style="color: #c72d12">{{ imageError }}</small>
-    <div v-if="imageUrl !== ''" class="image-container">
-      <img :src="imageUrl" class="item-image" @error="imageError = 'We could not load this image URL.'" />
+      <label for="imageUrl">Image URL</label>
+      <input id="imageUrl" type="url" v-model="imageUrl" placeholder="https://example.com/image.jpg" required />
+      <small v-if="imageError" style="color: #c72d12">{{ imageError }}</small>
+
+      <label for="quantity">Quantity</label>
+      <input id="quantity" type="number" v-model.number="quantity" placeholder="Quantity" required min="1" max="100" />
+      <small v-if="quantityError" style="color: #c72d12">{{ quantityError }}</small>
+
+      <label for="expireDate">Expire Date</label>
+      <input id="expireDate" type="date" v-model="expireDate" required />
+      <small v-if="dateError" style="color: #c72d12">{{ dateError }}</small>
+
+      <label for="description">Description</label>
+      <input id="description" v-model="description" placeholder="Description" required />
+
+      <label for="tags">Categories and Dietary Restrictions</label>
+      <TaggingComponent v-model:tags="tags" />
+
+      <div class="faq-link">
+        <p>
+          Have questions?
+          <RouterLink to="/faq" class="faq-anchor">Visit our FAQ</RouterLink>
+        </p>
+      </div>
+
+      <button type="submit" class="pure-button pure-button-primary">Create Listing</button>
+    </form>
+
+    <!-- Image Preview on the Right -->
+    <div class="image-container">
+      <img :src="imageUrl && isValidUrl(imageUrl) ? imageUrl : 'assets/images/no-image.png'" class="item-image" />
     </div>
-
-    <label for="quantity">Quantity</label>
-    <input id="quantity" type="number" v-model.number="quantity" placeholder="Quantity" required min="1" max="100" />
-    <small v-if="quantityError" style="color: #c72d12">{{ quantityError }}</small>
-
-    <label for="expireDate">Expire Date</label>
-    <input id="expireDate" type="date" v-model="expireDate" required />
-    <small v-if="dateError" style="color: #c72d12">{{ dateError }}</small>
-
-    <label for="description">Description</label>
-    <input id="description" v-model="description" placeholder="Description" required />
-
-    <label for="tags">Categories and Dietary Restrictions</label>
-    <TaggingComponent v-model:tags="tags" />
-    <div class="faq-link">
-      <p>
-        Have questions?
-        <RouterLink to="/faq" class="faq-anchor">Visit our FAQ</RouterLink>
-      </p>
-    </div>
-    <button type="submit" class="pure-button pure-button-primary">Create Listing</button>
-  </form>
+  </div>
 </template>
 
 <style scoped>
-form {
+.form-container {
   display: flex;
-  flex-direction: column;
-  gap: 0.5em;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2em;
   padding: 1em;
 }
 
-input {
-  padding: 0.5em 0.6em;
-  display: inline-block;
-  border: 1px solid #ccc;
-  box-shadow: inset 0 1px 3px #ddd;
-  border-radius: 4px;
-  vertical-align: middle;
-  box-sizing: border-box;
-}
-
-button {
-  background-color: #69825a;
-  border-radius: 10px;
+.create-listing-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
 }
 
 .image-container {
-  width: 400px; /* Set the square width */
-  height: 400px; /* Set the square height */
-  overflow: hidden; /* Ensure excess image is hidden */
-  margin-bottom: 15px;
-  margin-right: 100px;
-  margin-left: 50px;
+  width: 400px;
+  height: 400px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: #f3f3f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .image-container img {
   width: 100%;
   height: 100%;
   border-radius: 10px;
-  object-fit: cover; /* Ensures the image fills the square without distortion */
+  object-fit: cover;
+  border: 1px solid #ccc;
 }
 </style>
