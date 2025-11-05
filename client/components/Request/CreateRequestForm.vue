@@ -38,12 +38,12 @@ const createRequest = async () => {
   dateError.value = "";
   quantityError.value = "";
 
-  if (!name.value || !quantity.value || !needBy.value || !imageUrl.value || !description.value) {
+  if (!name.value || !quantity.value || !needBy.value || !description.value) {
     alert("All fields are required.");
     return;
   }
 
-  if (!isValidUrl(imageUrl.value)) {
+  if (imageUrl.value && !isValidUrl(imageUrl.value)) {
     imageError.value = "Please enter a valid image URL.";
     return;
   }
@@ -63,7 +63,7 @@ const createRequest = async () => {
         name: name.value,
         quantity: quantity.value,
         needBy: needBy.value,
-        image: imageUrl.value,
+        ...(imageUrl.value ? { image: imageUrl.value } : {}),
         description: description.value,
       },
     });
@@ -73,7 +73,6 @@ const createRequest = async () => {
       name.value = "";
       quantity.value = 0;
       needBy.value = "";
-      image.value = "";
       description.value = "";
       // Navigate back to the home view
       await router.push({ name: "Home" });
@@ -88,44 +87,55 @@ const createRequest = async () => {
 </script>
 
 <template>
-  <form @submit.prevent="createRequest" class="pure-form pure-form-stacked">
-    <label for="name">Item Name</label>
-    <input id="name" type="text" v-model="name" placeholder="Name" required />
+  <div class="form-container">
+    <form @submit.prevent="createRequest" class="pure-form pure-form-stacked create-request-form">
+      <label for="name">Item Name</label>
+      <input id="name" type="text" v-model="name" placeholder="Name" required />
 
-    <label for="imageUrl">Image URL</label>
-    <input id="imageUrl" type="url" v-model="imageUrl" placeholder="https://example.com/image.jpg" required />
-    <small v-if="imageError" style="color: #c72d12">{{ imageError }}</small>
-    <div v-if="imageUrl !== ''" class="image-container">
-      <img :src="imageUrl" class="item-image" @error="imageError = 'We could not load this image URL.'" />
+      <label for="imageUrl">Image URL (optional)</label>
+      <input id="imageUrl" type="url" v-model="imageUrl" placeholder="https://example.com/image.jpg" />
+      <small v-if="imageError" style="color: #c72d12">{{ imageError }}</small>
+
+      <label for="quantity">Quantity</label>
+      <input id="quantity" type="number" v-model.number="quantity" placeholder="Quantity" required min="1" max="100" />
+      <small v-if="quantityError" style="color: #c72d12">{{ quantityError }}</small>
+
+      <label for="needBy">Need By</label>
+      <input id="needBy" type="date" v-model="needBy" required />
+      <small v-if="dateError" style="color: #c72d12">{{ dateError }}</small>
+
+      <label for="description">Description</label>
+      <input id="description" v-model="description" placeholder="Description" required />
+
+      <div class="faq-link">
+        <p>
+          Have questions?
+          <RouterLink to="/faq" class="faq-anchor">Visit our FAQ</RouterLink>
+        </p>
+      </div>
+      <button type="submit" class="pure-button pure-button-primary">Create Request</button>
+    </form>
+
+    <div class="image-container">
+      <img :src="imageUrl && isValidUrl(imageUrl) ? imageUrl : 'assets/images/no-image.jpg'" class="item-image" />
     </div>
-
-    <label for="quantity">Quantity</label>
-    <input id="quantity" type="number" v-model.number="quantity" placeholder="Quantity" required min="1" max="100" />
-    <small v-if="quantityError" style="color: #c72d12">{{ quantityError }}</small>
-
-    <label for="needBy">Need By</label>
-    <input id="needBy" type="date" v-model="needBy" required />
-    <small v-if="dateError" style="color: #c72d12">{{ dateError }}</small>
-
-    <label for="description">Description</label>
-    <input id="description" v-model="description" placeholder="Description" required />
-
-    <div class="faq-link">
-      <p>
-        Have questions?
-        <RouterLink to="/faq" class="faq-anchor">Visit our FAQ</RouterLink>
-      </p>
-    </div>
-    <button type="submit" class="pure-button pure-button-primary">Create Request</button>
-  </form>
+  </div>
 </template>
 
 <style scoped>
-form {
+.form-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2em;
+  padding: 1em;
+}
+
+.create-request-form {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.5em;
-  padding: 1em;
 }
 
 input {
@@ -144,19 +154,23 @@ button {
 }
 
 .image-container {
-  width: 400px; /* Set the square width */
-  height: 400px; /* Set the square height */
-  overflow: hidden; /* Ensure excess image is hidden */
-  margin-bottom: 15px;
-  margin-right: 100px;
-  margin-left: 50px;
+  width: 400px;
+  height: 400px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: #f3f3f3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .image-container img {
   width: 100%;
   height: 100%;
   border-radius: 10px;
-  object-fit: cover; /* Ensures the image fills the square without distortion */
+  object-fit: cover;
+  border: 1px solid #ccc;
 }
 </style>
 
