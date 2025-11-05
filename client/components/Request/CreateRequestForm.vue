@@ -73,7 +73,6 @@ const createRequest = async () => {
       name.value = "";
       quantity.value = 0;
       needBy.value = "";
-      image.value = "";
       description.value = "";
       // Navigate back to the home view
       await router.push({ name: "Home" });
