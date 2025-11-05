@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 import { fetchy } from "@/utils/fetchy"; // Ensure this is set up to handle your API requests
 import { ref } from "vue";
@@ -9,17 +8,51 @@ const name = ref("");
 const imageUrl = ref("");
 const quantity = ref(0);
 const needBy = ref("");
-const image = ref("");
 const description = ref("");
+
+// Validation helpers
+const imageError = ref("");
+const dateError = ref("");
+const quantityError = ref("");
+
+const isValidUrl = (url: string) => {
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+const isValidDate = (value: string) => {
+  if (!value) return false;
+  const d = new Date(value);
+  return !isNaN(d.getTime());
+};
 
 // Use Vue Router
 const router = useRouter();
 
 // Create a new Request
 const createRequest = async () => {
+  imageError.value = "";
+  dateError.value = "";
+  quantityError.value = "";
 
   if (!name.value || !quantity.value || !needBy.value || !imageUrl.value || !description.value) {
     alert("All fields are required.");
+    return;
+  }
+
+  if (!isValidUrl(imageUrl.value)) {
+    imageError.value = "Please enter a valid image URL.";
+    return;
+  }
+  if (!isValidDate(needBy.value)) {
+    dateError.value = "Please select a valid date.";
+    return;
+  }
+  if (quantity.value < 1 || quantity.value > 100) {
+    quantityError.value = "Quantity must be between 1 and 100.";
     return;
   }
 
@@ -56,37 +89,38 @@ const createRequest = async () => {
 
 <template>
   <form @submit.prevent="createRequest" class="pure-form pure-form-stacked">
-      <label for="name">Item Name</label>
-      <input id="name" type="text" v-model="name" placeholder="Name" required />
-    
-      <label for="imageUrl">Image URL</label>
-      <input id="imageUrl" type="text" v-model="imageUrl" placeholder="Image URL" required />
-      <div v-if="imageUrl!==''" class="image-container">
-        <img :src="imageUrl" class="item-image" />
-      </div>
+    <label for="name">Item Name</label>
+    <input id="name" type="text" v-model="name" placeholder="Name" required />
 
-      <label for="quantity">Quantity</label>
-      <input id="quantity" type="number" v-model="quantity" placeholder="Quantity" required />
+    <label for="imageUrl">Image URL</label>
+    <input id="imageUrl" type="url" v-model="imageUrl" placeholder="https://example.com/image.jpg" required />
+    <small v-if="imageError" style="color: #c72d12">{{ imageError }}</small>
+    <div v-if="imageUrl !== ''" class="image-container">
+      <img :src="imageUrl" class="item-image" @error="imageError = 'We could not load this image URL.'" />
+    </div>
 
-      <label for="needBy">Need By</label>
-      <input id="needBy" type="string" v-model="needBy" placeholder="mm/dd/yyyy" required />
-    
-      <label for="description">Description</label>
-      <input id="description" v-model="description" placeholder="Description" required>
+    <label for="quantity">Quantity</label>
+    <input id="quantity" type="number" v-model.number="quantity" placeholder="Quantity" required min="1" max="100" />
+    <small v-if="quantityError" style="color: #c72d12">{{ quantityError }}</small>
 
+    <label for="needBy">Need By</label>
+    <input id="needBy" type="date" v-model="needBy" required />
+    <small v-if="dateError" style="color: #c72d12">{{ dateError }}</small>
 
-      <div class="faq-link">
-        <p>
-          Have questions?
-          <RouterLink to="/faq" class="faq-anchor">Visit our FAQ</RouterLink>
-        </p>
-      </div>
-      <button type="submit" class="pure-button pure-button-primary">Create Request</button>
+    <label for="description">Description</label>
+    <input id="description" v-model="description" placeholder="Description" required />
+
+    <div class="faq-link">
+      <p>
+        Have questions?
+        <RouterLink to="/faq" class="faq-anchor">Visit our FAQ</RouterLink>
+      </p>
+    </div>
+    <button type="submit" class="pure-button pure-button-primary">Create Request</button>
   </form>
 </template>
 
 <style scoped>
-
 form {
   display: flex;
   flex-direction: column;
@@ -95,13 +129,13 @@ form {
 }
 
 input {
-  padding: .5em .6em;
-    display: inline-block;
-    border: 1px solid #ccc;
-    box-shadow: inset 0 1px 3px #ddd;
-    border-radius: 4px;
-    vertical-align: middle;
-    box-sizing: border-box;
+  padding: 0.5em 0.6em;
+  display: inline-block;
+  border: 1px solid #ccc;
+  box-shadow: inset 0 1px 3px #ddd;
+  border-radius: 4px;
+  vertical-align: middle;
+  box-sizing: border-box;
 }
 
 button {
@@ -125,7 +159,6 @@ button {
   object-fit: cover; /* Ensures the image fills the square without distortion */
 }
 </style>
-
 
 <!-- <script setup lang="ts">
 import router from "@/router";
